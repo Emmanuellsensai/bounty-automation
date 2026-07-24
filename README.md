@@ -105,42 +105,79 @@ The Drips Wave is keyed by a UUID. To find it:
 
 ## Daily loop
 
+Everything goes through one command: `bounty.js`.
+
 ```bash
-cd ~/bounty-automation/watcher     # (or $HOME\bounty-automation\watcher on Windows)
+cd ~/bounty-automation/watcher
 
-node watch.js --dry                # preview GrantFox candidates
-node watch.js                      # write drafts to inbox/
-./review.ps1                       # (Windows) post applications, Enter/skip/edit per item
+# preview what's available
+node bounty.js all --dry
 
-node drips.js --dry                # preview Drips Wave shortlist
-node drips.js                      # write to inbox-drips/
-# Drips: open each 'APPLY HERE' link, paste the draft into the Drips form
-node applied.js add "owner/repo#123" "owner/repo#456"  # record what you applied to
+# GrantFox: find, draft, and auto-post applications
+node bounty.js grantfox --auto
+
+# Drips: shortlist to inbox-drips/ (apply manually through their UI)
+node bounty.js drips
+
+# record Drips applications you posted manually
+node bounty.js applied add "owner/repo#123" "owner/repo#456"
+
+# run both on a schedule
+node bounty.js all --auto --loop
 ```
 
-`applied.json` is shared: once an issue is in it, neither watcher will surface
-it again.
+`applied.json` is shared: once an issue is in it, neither source will surface
+it again. GrantFox also gets server-side dedup via `-commenter:<you>`.
 
 ## Useful commands
 
 ```
-node applied.js list                    show everything recorded
-node applied.js add <ref>...            record applications (owner/repo#N or URL)
-node applied.js import-posted           import from the review.ps1 posted/ folder
-node applied.js import-assigned         import your open GitHub assignments
-node applied.js prune 90                drop entries older than N days
-
-node drips.js --waves                   list Drips wave IDs (to switch waves)
-node drips.js --dry                     shortlist without writing
+node bounty.js grantfox --dry           preview GrantFox candidates
+node bounty.js grantfox --auto          find + draft + post automatically
+node bounty.js drips --dry              preview Drips shortlist
+node bounty.js drips                    write Drips shortlist to inbox-drips/
+node bounty.js all --dry                preview both sources
+node bounty.js all --auto               both (auto-post GrantFox, shortlist Drips)
+node bounty.js applied list             show exclusion list
+node bounty.js applied add <ref>...     record applications manually
+node bounty.js applied import-posted    import from posted/ folder
+node bounty.js applied import-assigned  import GitHub assignments
+node bounty.js applied prune 90         drop entries older than 90 days
+node bounty.js drips-waves              list available Drips wave IDs
 ```
 
-## What is not automated on purpose
+## Draft providers
 
-- **Applying.** Comments post publicly under your name. `review.ps1` still needs
-  you to press Enter for each item so quality stays in your hands.
+The default provider is **Claude** (via the CLI, using your subscription, no
+API key). You can switch to **Gemini** or **OpenAI** per-run or in config:
+
+```bash
+# per-run override
+node bounty.js grantfox --auto --provider gemini --model gemini-2.5-flash
+node bounty.js drips --provider openai --model gpt-4o-mini
+
+# or set in config.json / drips-config.json
+{
+  "draft_provider": "gemini",
+  "draft_model": "gemini-2.5-flash"
+}
+```
+
+| Provider | Env var needed | Default model |
+|----------|---------------|---------------|
+| `claude` | none (uses subscription) | `haiku` |
+| `gemini` | `GEMINI_API_KEY` | `gemini-2.5-flash` |
+| `openai` | `OPENAI_API_KEY` | `gpt-4o-mini` |
+
+The old `watch.js`, `drips.js`, and `applied.js` still work independently if
+you prefer, but `bounty.js` replaces all three.
+
+## What stays manual and why
+
+- **Drips applications.** Their platform only registers applications submitted
+  through their UI. A GitHub comment does not count.
 - **The recon verdict.** Templated issues sometimes describe code that does not
-  exist. Reading the recon before letting the solver design a fix is the gate
-  that keeps PRs mergeable.
+  exist. Reading the solver's recon output is the gate that keeps PRs honest.
 - **Committing.** The solver stops with everything uncommitted. You review the
   diff, commit and push by hand.
 
