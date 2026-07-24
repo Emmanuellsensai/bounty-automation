@@ -1,0 +1,53 @@
+{
+  "poll_minutes": 20,
+  "github_username": "YOUR_GITHUB_USERNAME",
+  "draft_model": "sonnet",
+  "per_source_limit": 20,
+  "max_per_repo": 3,
+  "max_comments": 2,
+  "recent_days": 7,
+  "title_exclude_regex": "\\(buffer\\s*#\\d+\\)|\\bbuffer\\s*#\\d+|\\bpart\\s*\\d+\\s*/\\s*\\d+\\b|\\(\\s*\\d+\\s*/\\s*\\d+\\s*\\)$",
+  "unknown_points": "include",
+  "sources": {
+    "grantfox": {
+      "enabled": true,
+      "labels": [
+        "GrantFox OSS"
+      ],
+      "extra_qualifiers": "",
+      "min_points": null,
+      "exclude_labels": [
+        "wontfix",
+        "duplicate",
+        "invalid"
+      ],
+      "points_by_label": {}
+    },
+    "drips-stellar": {
+      "enabled": true,
+      "labels": [
+        "Stellar Wave"
+      ],
+      "extra_qualifiers": "",
+      "min_points": 200,
+      "unknown_points": "include",
+      "exclude_labels": [
+        "wontfix",
+        "duplicate",
+        "invalid"
+      ],
+      "points_by_label": {
+        "High": 200,
+        "Complexity: High": 200,
+        "Difficulty: Advanced": 200,
+        "Complexity: Hardcore": 200,
+        "Medium": 150,
+        "Complexity: Medium": 150,
+        "Difficulty: Intermediate": 150,
+        "Trivial": 100,
+        "Complexity: Trivial": 100,
+        "Difficulty: Beginner": 100
+      }
+    }
+  }
+}

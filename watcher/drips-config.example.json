@@ -1,0 +1,13 @@
+{
+  "waveProgramId": "YOUR_WAVEPROGRAMID",
+  "wave_slug": "stellar",
+  "shortlist_size": 20,
+  "max_pending_applications": 2,
+  "min_points": 200,
+  "max_per_repo": 3,
+  "recent_days": 14,
+  "sort_by": "updatedAt",
+  "max_pages": 8,
+  "draft_model": "haiku",
+  "title_exclude_regex": "\\(buffer\\s*#\\d+\\)|\\bbuffer\\s*#\\d+|\\bpart\\s*\\d+\\s*/\\s*\\d+\\b"
+}
