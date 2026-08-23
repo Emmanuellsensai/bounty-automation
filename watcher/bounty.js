@@ -6,6 +6,7 @@
  *   node bounty.js all [--dry]        both sources
  *   node bounty.js applied ...        manage exclusion list
  *   node bounty.js drips-waves        list wave IDs
+ *   node bounty.js grantfox --dry --pick   list + select issues
  */
 const fs = require("fs");
 const path = require("path");
@@ -23,6 +24,17 @@ const PROMPT_PATH = path.join(DIR, "application-prompt.md");
 const args = process.argv.slice(2);
 const cmd = args[0] || "all";
 const DRY = args.includes("--dry");
+const PICK = args.includes("--pick");
+// --pick 2,6,18 shorthand: parse inline numbers, otherwise interactive
+const PICK_ARGS = (() => {
+  const pi = args.indexOf("--pick");
+  if (pi === -1) return null;
+  const next = args[pi + 1];
+  if (next && !next.startsWith("--")) {
+    return next.split(/[,\s]+/).map(Number).filter(n => Number.isInteger(n) && n >= 1);
+  }
+  return null; // interactive mode
+})();
 function loadApplied() {
   if (!fs.existsSync(APPLIED_PATH)) return {};
   try { return JSON.parse(fs.readFileSync(APPLIED_PATH, "utf8")).applied || {}; }
@@ -37,19 +49,49 @@ function normaliseRef(r) {
   return null;
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+function askSelection(list) {
+  return new Promise(resolve => {
+    const rl = require("readline").createInterface({ input: process.stdin, output: process.stdout });
+    rl.question("Enter issue numbers to process (comma-separated, e.g. 2,6,18) or press Enter to skip: ", answer => {
+      rl.close();
+      const trimmed = answer.trim();
+      if (!trimmed) { resolve([]); return; }
+      const nums = trimmed.split(/[,\s]+/).map(Number).filter(n => Number.isInteger(n) && n >= 1 && n <= list.length);
+      resolve(nums);
+    });
+  });
+}
 const BAD_DRAFT = /(?:^|\n)\s*(note for|i wasn't able|i couldn't|i was unable|here's the draft|here is the draft|no problem,|i'll base the draft|tool (calls|access)\b)/im;
 const SEP_LINE = /(?:^|\n)\s*-{3,}\s*(?:\n|$)/m;
 function isDraftSafe(t) {
   if (!t || t.length < 20) return false;
   if (/DRAFT-FAILED|GEMINI_API_KEY not set/i.test(t)) return false;
   if (BAD_DRAFT.test(t) || SEP_LINE.test(t)) return false;
+  // Detect truncation: response cut off mid-sentence
+  const trimmed = t.trimEnd();
+  if (!/[.!?]\s*$/.test(trimmed) && !/\n-?\s*$/.test(trimmed)) {
+    // Last line doesn't end with sentence punctuation or a list item — likely truncated
+    const lines = trimmed.split("\n");
+    const lastLine = lines[lines.length - 1].trim();
+    if (lastLine.length > 5 && !/\.$/.test(lastLine) && !/\)$/.test(lastLine)) {
+      console.error("  Draft appears truncated (ends with: \"" + lastLine.slice(-60) + "\")");
+      return false;
+    }
+  }
   return true;
+}
+function isWSL() {
+  try {
+    const r = fs.readFileSync("/proc/version", "utf8").toLowerCase();
+    return r.includes("microsoft") || r.includes("wsl");
+  } catch { return false; }
 }
 function openBrowser(url) {
   try {
     const p = os.platform();
     if (p === "win32") execSync('start "" "' + url + '"', { stdio: "ignore", windowsHide: true });
     else if (p === "darwin") execSync('open "' + url + '"', { stdio: "ignore" });
+    else if (isWSL()) execSync('cmd.exe /c start "" "' + url + '"', { stdio: "ignore", windowsHide: true });
     else execSync('xdg-open "' + url + '"', { stdio: "ignore" });
     return true;
   } catch { return false; }
@@ -68,12 +110,16 @@ async function draft(repo, issue) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) { console.error("  GEMINI_API_KEY not set"); return null; }
   const prompt = buildPrompt(repo, issue);
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + key;
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + key;
   try {
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: 700 } }),
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: "You are an expert open-source developer. You write specific, actionable, high-quality bounty applications. Never be vague. Never use filler. Every sentence must demonstrate technical understanding of the issue. Always finish your final sentence completely - never leave a sentence mid-thought." }] },
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 4000, temperature: 0.7 }
+      }),
     });
     if (!res.ok) { console.error("  Gemini API " + res.status); return null; }
     const data = await res.json();
@@ -163,7 +209,7 @@ async function runGrantFox() {
   if (d.length) console.log("[grantfox] filtered: " + d.join(", "));
   console.log("[grantfox] " + kept.length + " high-complexity issue(s) selected\n");
   if (!kept.length) return;
-  const urls = [];
+  // First loop: display all issues
   for (let i = 0; i < kept.length; i++) {
     const { issue, repo, key } = kept[i];
     const [owner, rp] = repo.split("/");
@@ -172,7 +218,29 @@ async function runGrantFox() {
     console.log("  " + (i + 1) + ". " + key + ' -- "' + issue.title + '"');
     console.log("     Comments: " + issue.comments + " | Labels: " + labels);
     console.log("     GrantFox: " + gfUrl);
-    if (DRY) continue;
+  }
+  // Selection: --pick 2,6,18 (inline) or --pick (interactive)
+  let toProcess = kept;
+  if (PICK && kept.length) {
+    let nums;
+    if (PICK_ARGS && PICK_ARGS.length) {
+      nums = PICK_ARGS.filter(n => n <= kept.length);
+    } else {
+      nums = await askSelection(kept);
+    }
+    if (!nums.length) { console.log("No issues selected. Aborting."); return; }
+    toProcess = nums.map(n => kept[n - 1]);
+    console.log("\nSelected " + toProcess.length + " issue(s) for processing:\n");
+  }
+  // Process selected (or all if --pick not used)
+  const urls = [];
+  for (let i = 0; i < toProcess.length; i++) {
+    const { issue, repo, key } = toProcess[i];
+    const [owner, rp] = repo.split("/");
+    const gfUrl = buildGFUrl(owner, rp, issue.number);
+    const labels = issue.labels.map(l => l.name || l).join(", ") || "none";
+    if (PICK) console.log("  " + (i + 1) + ". " + key + ' -- "' + issue.title + '"');
+    if (DRY && !PICK) continue;
     state.seen[key] = new Date().toISOString();
     const body = await draft(repo, Object.assign({}, issue, { url: issue.html_url }));
     if (body && isDraftSafe(body)) {
@@ -223,6 +291,8 @@ async function runDrips() {
   const spamRe = config.title_exclude_regex ? new RegExp(config.title_exclude_regex, "i") : null;
   let cursor = null;
   const dropped = { seen: 0, points: 0, spam: 0, repo: 0 };
+// Complexity preference: easy > medium > hard. Sorting deprioritises hard.
+const complexityOrder = { easy: 0, "easy ": 0, medium: 1, "medium ": 1, hard: 2, "hard ": 2, large: 2 };
   for (let page = 1; page <= (config.max_pages || 8); page++) {
     let u = "/issues?limit=100&waveProgramId=" + config.waveProgramId + "&state=open&applicantAssigned=false&sortBy=" + (config.sort_by || "updatedAt");
     if (cursor) u += "&cursor=" + encodeURIComponent(cursor);
@@ -236,13 +306,21 @@ async function runDrips() {
       if (state.seen[key] || (state.applied && state.applied[key]) || applied[key]) { dropped.seen++; continue; }
       if ((it.points || 0) < minPts) { dropped.points++; continue; }
       if (spamRe && spamRe.test(it.title)) { dropped.spam++; continue; }
+      // Include all complexities — sorting will prefer easy/medium
       allIssues.push(it);
     }
     cursor = data.pagination && data.pagination.nextCursor;
     if (!data.pagination || !data.pagination.hasNextPage || !cursor) break;
     await sleep(400);
   }
-  allIssues.sort((a, b) => (b.points || 0) - (a.points || 0));
+  allIssues.sort((a, b) => {
+    // Primary: complexity preference (easy first, then medium)
+    const ca = complexityOrder[(a.complexity || "").toLowerCase().trim()] ?? 9;
+    const cb = complexityOrder[(b.complexity || "").toLowerCase().trim()] ?? 9;
+    if (ca !== cb) return ca - cb;
+    // Secondary: points descending
+    return (b.points || 0) - (a.points || 0);
+  });
   // Group by repo for round-robin selection across repos
   const dripsByRepo = {};
   for (const it of allIssues) {
@@ -261,20 +339,44 @@ async function runDrips() {
     }
   }
   const d = Object.entries(dropped).filter(e => e[1]).map(e => e[1] + " " + e[0]);
-  if (d.length) console.log("[drips] filtered: " + d.join(", "));
-  console.log("[drips] " + kept.length + " issue(s) selected (sorted by points)\n");
+  if (d.length)  console.log("[drips] filtered: " + d.join(", "));
+  // Log complexity breakdown
+  const cxCounts = {};
+  kept.forEach(it => { const c = (it.complexity || "unknown").toLowerCase(); cxCounts[c] = (cxCounts[c] || 0) + 1; });
+  if (Object.keys(cxCounts).length) console.log("[drips] complexity: " + Object.entries(cxCounts).map(([k, v]) => v + " " + k).join(", "));
+  console.log("[drips] " + kept.length + " issue(s) selected (easy/medium priority, by points)\n");
   if (!kept.length) return;
-  const urls = [];
   for (let i = 0; i < kept.length; i++) {
     const it = kept[i];
     const repo = it.repo.gitHubRepoFullName;
     const key = repo + "#" + it.gitHubIssueNumber;
-    const gh = it.repo.gitHubRepoUrl + "/issues/" + it.gitHubIssueNumber;
     const dripsUrl = "https://www.drips.network/wave/" + (config.wave_slug || "stellar") + "/issues/" + it.id;
     console.log("  " + (i + 1) + ". " + key + ' -- "' + it.title + '"');
     console.log("     Points: " + it.points + " (x" + it.pointsMultiplier + ") | Apps: " + it.pendingApplicationsCount + " | Complexity: " + it.complexity);
     console.log("     Drips: " + dripsUrl);
-    if (DRY) continue;
+  }
+  // Selection: --pick 2,6,18 (inline) or --pick (interactive)
+  let toProcess = kept;
+  if (PICK && kept.length) {
+    let nums;
+    if (PICK_ARGS && PICK_ARGS.length) {
+      nums = PICK_ARGS.filter(n => n <= kept.length);
+    } else {
+      nums = await askSelection(kept);
+    }
+    if (!nums.length) { console.log("No issues selected. Aborting."); return; }
+    toProcess = nums.map(n => kept[n - 1]);
+    console.log("\nSelected " + toProcess.length + " issue(s) for processing:\n");
+  }
+  const urls = [];
+  for (let i = 0; i < toProcess.length; i++) {
+    const it = toProcess[i];
+    const repo = it.repo.gitHubRepoFullName;
+    const key = repo + "#" + it.gitHubIssueNumber;
+    const gh = it.repo.gitHubRepoUrl + "/issues/" + it.gitHubIssueNumber;
+    const dripsUrl = "https://www.drips.network/wave/" + (config.wave_slug || "stellar") + "/issues/" + it.id;
+    if (PICK) console.log("  " + (i + 1) + ". " + key + ' -- "' + it.title + '"');
+    if (DRY && !PICK) continue;
     state.seen[key] = new Date().toISOString();
     const body = await draft(repo, { title: it.title, body: it.body, url: gh });
     const slug = repo.replace("/", "__") + "--" + it.gitHubIssueNumber;
@@ -377,7 +479,7 @@ async function main() {
       break;
     }
     default:
-      console.log("bounty -- GrantFox + Drips Wave bounty automation\n\n  node bounty.js grantfox [--dry]   high-complexity issues, draft, open browser\n  node bounty.js drips [--dry]      200+ pt issues, draft, open browser\n  node bounty.js all [--dry]        both sources\n  node bounty.js applied ...        manage exclusion list\n  node bounty.js drips-waves        list wave IDs\n\nGrantFox: high-complexity labels, <5 comments, max 4/repo.\nDrips: 200+ points (800/400 prioritised), max 4/repo.\nDrafting: Gemini 2.0 Flash. Set GEMINI_API_KEY.");
+      console.log("bounty -- GrantFox + Drips Wave bounty automation\n\n  node bounty.js grantfox [--dry] [--pick]   high-complexity issues, draft, open browser\n  node bounty.js drips [--dry] [--pick]      easy/medium issues, draft, open browser\n  node bounty.js all [--dry] [--pick]        both sources\n  node bounty.js applied ...                 manage exclusion list\n  node bounty.js drips-waves                 list wave IDs\n\n--dry          List issues only, no drafting or browser\n--pick         After listing, prompt to choose which issues to process\n--pick 2,6,18  Auto-select specific issues (list numbers, not GitHub issue #)\n\nGrantFox: high-complexity labels, <5 comments, max 4/repo (hard/complex).\nDrips: 200+ points, easy/medium priority, 15 per run.\nAll issues shown are unassigned. Drafting: Gemini 2.5 Flash. Set GEMINI_API_KEY.");
   }
 }
 main().catch(e => { console.error("Error:", e.message); process.exit(1); });
