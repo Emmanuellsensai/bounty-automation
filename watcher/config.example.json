@@ -3,7 +3,7 @@
   "github_username": "YOUR_GITHUB_USERNAME",
   "draft_provider": "gemini",
   "draft_model": "gemini-2.0-flash",
-  "per_source_limit": 4,
+  "per_source_limit": 100,
   "max_per_repo": 4,
   "max_comments": 5,
   "recent_days": 14,

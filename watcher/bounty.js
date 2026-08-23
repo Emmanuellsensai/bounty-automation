@@ -117,7 +117,7 @@ async function runGrantFox() {
   if (!src || src.enabled === false) { console.log("[grantfox] disabled"); return; }
   const cplx = src.complexity_labels || ["Complexity: High", "Complexity: Hardcore", "Difficulty: Advanced", "High"];
   const maxC = src.max_comments != null ? src.max_comments : (config.max_comments != null ? config.max_comments : 5);
-  const limit = config.per_source_limit || 4;
+  const limit = config.per_source_limit || 100;
   const maxR = config.max_per_repo || 4;
   const parts = ["is:issue", "is:open", "no:assignee"];
   (src.labels || []).forEach(l => parts.push('label:"' + l + '"'));
