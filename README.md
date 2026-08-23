@@ -10,9 +10,12 @@ Watches GrantFox and Drips Wave for bounty issues, drafts applications with Gemi
 
 ### GrantFox
 - Searches GitHub for issues labeled `GrantFox OSS`
-- Filters to high-complexity only (`Complexity: High`, `Complexity: Hardcore`, `Difficulty: Advanced`)
+- Filters to high-value issues using multiple label types:
+  - **Complexity**: `Complexity: High`, `Complexity: Hardcore`, `Difficulty: Advanced`, `High`
+  - **Priority**: `P0`, `P1`, `priority: high`, `priority/medium`, `high-priority`
+  - **Value**: `security`, `performance`, `Maybe Rewarded`
 - Requires less than 5 comments (other applications)
-- Max 4 issues per repo (avoids over-saturating)
+- Shows ALL qualifying issues (up to 4 per repo)
 - Drafts application with Gemini 2.0 Flash (free)
 - Opens browser to the GrantFox issue page
 - Saves draft to `inbox/` for review
@@ -20,7 +23,7 @@ Watches GrantFox and Drips Wave for bounty issues, drafts applications with Gemi
 ### Drips Wave
 - Pulls from Drips Wave API
 - Filters to 200+ points (prioritizes 800 → 400 → 200+)
-- Max 4 issues per repo
+- Shows ALL qualifying issues (up to 4 per repo)
 - Drafts with Gemini 2.0 Flash (free)
 - Opens browser to the Drips issue page
 - Saves draft to `inbox-drips/` for review
@@ -168,11 +171,14 @@ You should see output like:
 [grantfox] Searching for high-complexity issues...
 [grantfox] query: is:issue is:open no:assignee label:"GrantFox OSS" ...
 [grantfox] 42 total; pulled 20
-[grantfox] 4 high-complexity issue(s) selected
+[grantfox] 12 high-complexity issue(s) selected
 
   1. owner/repo#123 -- "Fix bug in payment flow"
-     Comments: 2 | Labels: Complexity: High, GrantFox OSS
+     Comments: 2 | Labels: priority: high, GrantFox OSS
      GrantFox: https://contribute.grantfox.xyz/org/owner/repo/issue/123
+  2. owner/repo#124 -- "Add security audit logging"
+     Comments: 1 | Labels: security, Maybe Rewarded, GrantFox OSS
+     GrantFox: https://contribute.grantfox.xyz/org/owner/repo/issue/124
   ...
 ```
 
@@ -186,7 +192,7 @@ node bounty.js grantfox
 ```
 
 **What happens:**
-1. Searches for high-complexity GrantFox issues
+1. Searches for high-value GrantFox issues
 2. Drafts applications using Gemini 2.0 Flash (free)
 3. Saves drafts to `inbox/` folder
 4. Opens browser to each GrantFox issue page
@@ -206,7 +212,7 @@ node bounty.js grantfox
 node bounty.js grantfox           # Draft + open browser
 node bounty.js grantfox --dry     # Preview only (no drafting)
 
-# Drips (starts tomorrow when new wave begins)
+# Drips (starts when new wave begins)
 node bounty.js drips              # Draft + open browser
 node bounty.js drips --dry        # Preview only
 
@@ -220,8 +226,9 @@ node bounty.js applied add "owner/repo#123"    # Mark as applied
 node bounty.js applied remove "owner/repo#123" # Unmark
 node bounty.js applied prune 90   # Remove entries older than 90 days
 
-# Drips utilities
-node bounty.js drips-waves        # List available wave program IDs
+# Utilities
+node bounty.js drips-waves        # List available Drips wave program IDs
+node check-repos.js               # Debug: show all repos and their labels
 ```
 
 ---
@@ -236,11 +243,11 @@ node bounty.js drips-waves        # List available wave program IDs
   "github_username": "your_username",
   "draft_provider": "gemini",
   "draft_model": "gemini-2.0-flash",
-  "per_source_limit": 4,          // Max issues to draft
-  "max_per_repo": 4,              // Max issues per repository
-  "max_comments": 5,              // Skip issues with this many+ comments
-  "recent_days": 14,              // Only issues from last N days
-  "title_exclude_regex": "...",   // Skip spam-like titles
+  "per_source_limit": 100,         // Show all qualifying issues
+  "max_per_repo": 4,               // Max issues per repository
+  "max_comments": 5,               // Skip issues with this many+ comments
+  "recent_days": 14,               // Only issues from last N days
+  "title_exclude_regex": "...",    // Skip spam-like titles
   "sources": {
     "grantfox": {
       "enabled": true,
@@ -249,7 +256,15 @@ node bounty.js drips-waves        # List available wave program IDs
         "Complexity: High",
         "Complexity: Hardcore",
         "Difficulty: Advanced",
-        "High"
+        "High",
+        "priority: high",
+        "priority/medium",
+        "P0",
+        "P1",
+        "high-priority",
+        "security",
+        "performance",
+        "Maybe Rewarded"
       ]
     }
   }
@@ -279,6 +294,7 @@ node bounty.js drips-waves        # List available wave program IDs
 bounty-automation/
 ├── watcher/
 │   ├── bounty.js                    # Main script (run this)
+│   ├── check-repos.js               # Debug: show repo labels
 │   ├── config.json                  # GrantFox config (gitignored)
 │   ├── drips-config.json            # Drips config (gitignored)
 │   ├── config.example.json          # GrantFox config template
@@ -313,7 +329,7 @@ bounty-automation/
 - Backslashes must be doubled in JSON: `\\(` not `\(`
 
 ### No issues found
-- GrantFox may have no high-complexity issues right now
+- GrantFox may have no high-value issues right now
 - Try adjusting `max_comments` or `recent_days` in config
 - Check manually at https://contribute.grantfox.xyz
 
