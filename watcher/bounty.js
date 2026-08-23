@@ -149,21 +149,15 @@ async function runGrantFox() {
     if (!byRepo[repo]) byRepo[repo] = [];
     byRepo[repo].push({ issue, repo, key });
   }
-  // Round-robin: one per repo first, then second, etc.
+  // Pick up to maxR issues per repo, prioritizing repos with more qualifying issues
   const kept = [];
-  const repoNames = Object.keys(byRepo);
-  let round = 0;
-  while (kept.length < limit) {
-    let added = false;
-    for (const repo of repoNames) {
-      if (kept.length >= limit) break;
-      if (round < byRepo[repo].length) {
-        kept.push(byRepo[repo][round]);
-        added = true;
-      }
+  const reposByCount = Object.keys(byRepo).sort((a, b) => byRepo[b].length - byRepo[a].length);
+  for (const repo of reposByCount) {
+    const issues = byRepo[repo];
+    const take = Math.min(maxR, issues.length);
+    for (let i = 0; i < take && kept.length < limit; i++) {
+      kept.push(issues[i]);
     }
-    if (!added) break;
-    round++;
   }
   const d = Object.entries(dropped).filter(e => e[1]).map(e => e[1] + " " + e[0]);
   if (d.length) console.log("[grantfox] filtered: " + d.join(", "));
@@ -256,20 +250,15 @@ async function runDrips() {
     if (!dripsByRepo[repo]) dripsByRepo[repo] = [];
     dripsByRepo[repo].push(it);
   }
+  // Pick up to maxR issues per repo, prioritizing repos with more qualifying issues
   const kept = [];
-  const dripsRepoNames = Object.keys(dripsByRepo);
-  let round = 0;
-  while (kept.length < want) {
-    let added = false;
-    for (const repo of dripsRepoNames) {
-      if (kept.length >= want) break;
-      if (round < dripsByRepo[repo].length) {
-        kept.push(dripsByRepo[repo][round]);
-        added = true;
-      }
+  const dripsReposByCount = Object.keys(dripsByRepo).sort((a, b) => dripsByRepo[b].length - dripsByRepo[a].length);
+  for (const repo of dripsReposByCount) {
+    const issues = dripsByRepo[repo];
+    const take = Math.min(maxR, issues.length);
+    for (let i = 0; i < take && kept.length < want; i++) {
+      kept.push(issues[i]);
     }
-    if (!added) break;
-    round++;
   }
   const d = Object.entries(dropped).filter(e => e[1]).map(e => e[1] + " " + e[0]);
   if (d.length) console.log("[drips] filtered: " + d.join(", "));
