@@ -135,11 +135,10 @@ async function runGrantFox() {
   const data = await ghFetch(GH_API + "/search/issues?q=" + encodeURIComponent(q) + "&sort=created&order=desc&per_page=" + perPage);
   console.log("[grantfox] " + data.total_count + " total; pulled " + data.items.length);
   const spamRe = config.title_exclude_regex ? new RegExp(config.title_exclude_regex, "i") : null;
-  const perRepo = {};
-  const kept = [];
   const dropped = { spam: 0, applied: 0, repo: 0, complexity: 0, comments: 0 };
+  // Group eligible issues by repo for round-robin selection
+  const byRepo = {};
   for (const issue of data.items) {
-    if (kept.length >= limit) break;
     const repo = issue.repository_url.split("/repos/")[1];
     const key = repo + "#" + issue.number;
     if (state.seen[key] || applied[key]) { dropped.applied++; continue; }
@@ -147,9 +146,24 @@ async function runGrantFox() {
     const issueLabels = issue.labels.map(l => typeof l === "string" ? l : l.name);
     if (!issueLabels.some(l => cplx.some(cl => cl.toLowerCase() === l.toLowerCase()))) { dropped.complexity++; continue; }
     if (issue.comments >= maxC) { dropped.comments++; continue; }
-    perRepo[repo] = (perRepo[repo] || 0) + 1;
-    if (perRepo[repo] > maxR) { dropped.repo++; continue; }
-    kept.push({ issue, repo, key });
+    if (!byRepo[repo]) byRepo[repo] = [];
+    byRepo[repo].push({ issue, repo, key });
+  }
+  // Round-robin: one per repo first, then second, etc.
+  const kept = [];
+  const repoNames = Object.keys(byRepo);
+  let round = 0;
+  while (kept.length < limit) {
+    let added = false;
+    for (const repo of repoNames) {
+      if (kept.length >= limit) break;
+      if (round < byRepo[repo].length) {
+        kept.push(byRepo[repo][round]);
+        added = true;
+      }
+    }
+    if (!added) break;
+    round++;
   }
   const d = Object.entries(dropped).filter(e => e[1]).map(e => e[1] + " " + e[0]);
   if (d.length) console.log("[grantfox] filtered: " + d.join(", "));
@@ -235,14 +249,27 @@ async function runDrips() {
     await sleep(400);
   }
   allIssues.sort((a, b) => (b.points || 0) - (a.points || 0));
-  const perRepoCount = {};
-  const kept = [];
+  // Group by repo for round-robin selection across repos
+  const dripsByRepo = {};
   for (const it of allIssues) {
-    if (kept.length >= want) break;
     const repo = it.repo && it.repo.gitHubRepoFullName || "unknown/unknown";
-    perRepoCount[repo] = (perRepoCount[repo] || 0) + 1;
-    if (perRepoCount[repo] > maxR) { dropped.repo++; continue; }
-    kept.push(it);
+    if (!dripsByRepo[repo]) dripsByRepo[repo] = [];
+    dripsByRepo[repo].push(it);
+  }
+  const kept = [];
+  const dripsRepoNames = Object.keys(dripsByRepo);
+  let round = 0;
+  while (kept.length < want) {
+    let added = false;
+    for (const repo of dripsRepoNames) {
+      if (kept.length >= want) break;
+      if (round < dripsByRepo[repo].length) {
+        kept.push(dripsByRepo[repo][round]);
+        added = true;
+      }
+    }
+    if (!added) break;
+    round++;
   }
   const d = Object.entries(dropped).filter(e => e[1]).map(e => e[1] + " " + e[0]);
   if (d.length) console.log("[drips] filtered: " + d.join(", "));
