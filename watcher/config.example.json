@@ -16,7 +16,15 @@
         "Complexity: High",
         "Complexity: Hardcore",
         "Difficulty: Advanced",
-        "High"
+        "High",
+        "priority: high",
+        "priority/medium",
+        "P0",
+        "P1",
+        "high-priority",
+        "security",
+        "performance",
+        "Maybe Rewarded"
       ],
       "max_comments": 5,
       "exclude_labels": ["wontfix", "duplicate", "invalid"],
