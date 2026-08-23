@@ -7,7 +7,7 @@
   "max_per_repo": 4,
   "max_comments": 5,
   "recent_days": 14,
-  "title_exclude_regex": "\(buffer\s*#\d+\)|\bbuffer\s*#\d+|\bpart\s*\d+\s*/\s*\d+\b|\(\s*\d+\s*/\s*\d+\s*\)$",
+  "title_exclude_regex": "\\(buffer\\s*#\\d+\\)|\\bbuffer\\s*#\\d+|\\bpart\\s*\\d+\\s*/\\s*\\d+\\b|\\(\\s*\\d+\\s*/\\s*\\d+\\s*\\)$",
   "sources": {
     "grantfox": {
       "enabled": true,

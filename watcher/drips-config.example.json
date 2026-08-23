@@ -8,5 +8,5 @@
   "max_pages": 8,
   "draft_provider": "gemini",
   "draft_model": "gemini-2.0-flash",
-  "title_exclude_regex": "\(buffer\s*#\d+\)|\bbuffer\s*#\d+|\bpart\s*\d+\s*/\s*\d+\b"
+  "title_exclude_regex": "\\(buffer\\s*#\\d+\\)|\\bbuffer\\s*#\\d+|\\bpart\\s*\\d+\\s*/\\s*\\d+\\b"
 }
