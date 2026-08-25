@@ -67,6 +67,15 @@ Available wave programs:
 Put the one you want in drips-config.json as waveProgramId.
 ```
 
+
+**Or find it via browser DevTools:**
+
+1. Go to https://www.drips.network/wave and click a wave
+2. Open **DevTools** (F12) → **Network** tab
+3. Filter by `wave`, then reload the page (Ctrl+Shift+R)
+4. Click `wave-programs?limit=100` in the request list
+5. Go to **Response** tab — each wave shows its `id` (the UUID)
+
 **Then set it in your config:**
 
 If `drips-config.json` doesn't exist yet, copy the example:
