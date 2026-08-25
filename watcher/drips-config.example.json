@@ -1,12 +1,13 @@
 {
   "waveProgramId": "YOUR_WAVEPROGRAMID",
   "wave_slug": "stellar",
-  "shortlist_size": 4,
+  "shortlist_size": 15,
   "min_points": 200,
   "max_per_repo": 4,
+  "max_pending_applications": 3,
   "sort_by": "updatedAt",
   "max_pages": 8,
   "draft_provider": "gemini",
   "draft_model": "gemini-2.0-flash",
-  "title_exclude_regex": "\\(buffer\\s*#\\d+\\)|\\bbuffer\\s*#\\d+|\\bpart\\s*\\d+\\s*/\\s*\\d+\\b"
+  "title_exclude_regex": "\(buffer\s*#\d+\)|\bbuffer\s*#\d+|\bpart\s*\d+\s*/\s*\d+\b"
 }

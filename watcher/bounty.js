@@ -284,13 +284,14 @@ async function runDrips() {
   const want = config.shortlist_size || 4;
   const maxR = config.max_per_repo || 4;
   const minPts = config.min_points || 200;
+  const maxApps = config.max_pending_applications != null ? config.max_pending_applications : 3;
   if (!DRY) fs.mkdirSync(DRIPS_INBOX, { recursive: true });
-  console.log("\n[drips] Searching for " + minPts + "+ point issues (priority: 800, 400)...");
+  console.log("\n[drips] Searching for " + minPts + "+ point issues (max 3 apps)...");
   console.log("[drips] wave: " + config.waveProgramId.slice(0, 8) + "...");
   const allIssues = [];
   const spamRe = config.title_exclude_regex ? new RegExp(config.title_exclude_regex, "i") : null;
   let cursor = null;
-  const dropped = { seen: 0, points: 0, spam: 0, repo: 0 };
+  const dropped = { seen: 0, points: 0, spam: 0, applicants: 0, repo: 0 };
 // Complexity preference: easy > medium > hard. Sorting deprioritises hard.
 const complexityOrder = { easy: 0, "easy ": 0, medium: 1, "medium ": 1, hard: 2, "hard ": 2, large: 2 };
   for (let page = 1; page <= (config.max_pages || 8); page++) {
@@ -306,6 +307,7 @@ const complexityOrder = { easy: 0, "easy ": 0, medium: 1, "medium ": 1, hard: 2,
       if (state.seen[key] || (state.applied && state.applied[key]) || applied[key]) { dropped.seen++; continue; }
       if ((it.points || 0) < minPts) { dropped.points++; continue; }
       if (spamRe && spamRe.test(it.title)) { dropped.spam++; continue; }
+      if (config.max_pending_applications != null && (it.pendingApplicationsCount || 0) > config.max_pending_applications) { dropped.applicants++; continue; }
       // Include all complexities — sorting will prefer easy/medium
       allIssues.push(it);
     }
@@ -314,11 +316,15 @@ const complexityOrder = { easy: 0, "easy ": 0, medium: 1, "medium ": 1, hard: 2,
     await sleep(400);
   }
   allIssues.sort((a, b) => {
-    // Primary: complexity preference (easy first, then medium)
+    // Primary: fewer pending applications (0 first)
+    const aa = a.pendingApplicationsCount || 0;
+    const bb = b.pendingApplicationsCount || 0;
+    if (aa !== bb) return aa - bb;
+    // Secondary: complexity preference (easy first, then medium)
     const ca = complexityOrder[(a.complexity || "").toLowerCase().trim()] ?? 9;
     const cb = complexityOrder[(b.complexity || "").toLowerCase().trim()] ?? 9;
     if (ca !== cb) return ca - cb;
-    // Secondary: points descending
+    // Tertiary: points descending
     return (b.points || 0) - (a.points || 0);
   });
   // Group by repo for round-robin selection across repos
