@@ -51,7 +51,7 @@ Edit `watcher/config.json` and set your GitHub username:
 
 To use the Drips Wave source, you need a **wave program ID**. This identifies which bounty wave you want to track (e.g. Stellar, Solana).
 
-**Option A — CLI (recommended):**
+Run this command to list all active wave programs and their IDs:
 
 ```bash
 node bounty.js drips-waves
@@ -66,16 +66,6 @@ Available wave programs:
 
 Put the one you want in drips-config.json as waveProgramId.
 ```
-
-**Option B — Browser DevTools:**
-
-1. Open the Drips Wave app: https://www.drips.network/wave
-2. Click on a wave (e.g. Stellar) and browse its issues
-3. Open **DevTools** (F12 / Ctrl+Shift+I / Cmd+Opt+I) → **Network** tab
-4. In the filter box, type: `waveProgramId`
-5. **Now reload the page** (Ctrl+Shift+R) — requests will appear
-6. Click any request, go to **Headers**, and copy the `waveProgramId` UUID from the URL
-
 
 **Then set it in your config:**
 
