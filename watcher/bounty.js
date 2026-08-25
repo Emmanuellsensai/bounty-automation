@@ -99,17 +99,18 @@ function openBrowser(url) {
 function buildGFUrl(owner, repo, num) {
   return "https://contribute.grantfox.xyz/org/" + owner + "/repo/" + repo + "/issue/" + num;
 }
-function buildPrompt(repo, issue) {
+function buildPrompt(repo, issue, source) {
   return fs.readFileSync(PROMPT_PATH, "utf8")
     .replace("{{REPO}}", repo)
     .replace("{{TITLE}}", issue.title || "")
     .replace("{{URL}}", issue.url || issue.html_url || "")
-    .replace("{{BODY}}", (issue.body || "").slice(0, 2500));
+    .replace("{{BODY}}", (issue.body || "").slice(0, 2500))
+    .replace("{{SOURCE}}", source || "bounty");
 }
-async function draft(repo, issue) {
+async function draft(repo, issue, source) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) { console.error("  GEMINI_API_KEY not set"); return null; }
-  const prompt = buildPrompt(repo, issue);
+  const prompt = buildPrompt(repo, issue, source);
   const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + key;
   try {
     const res = await fetch(url, {
@@ -242,7 +243,7 @@ async function runGrantFox() {
     if (PICK) console.log("  " + (i + 1) + ". " + key + ' -- "' + issue.title + '"');
     if (DRY && !PICK) continue;
     state.seen[key] = new Date().toISOString();
-    const body = await draft(repo, Object.assign({}, issue, { url: issue.html_url }));
+    const body = await draft(repo, Object.assign({}, issue, { url: issue.html_url }), "GrantFox");
     if (body && isDraftSafe(body)) {
       if (!fs.existsSync(GF_INBOX)) fs.mkdirSync(GF_INBOX, { recursive: true });
       const slug = "grantfox--" + repo.replace("/", "__") + "--" + issue.number;
@@ -384,7 +385,7 @@ const complexityOrder = { easy: 0, "easy ": 0, medium: 1, "medium ": 1, hard: 2,
     if (PICK) console.log("  " + (i + 1) + ". " + key + ' -- "' + it.title + '"');
     if (DRY && !PICK) continue;
     state.seen[key] = new Date().toISOString();
-    const body = await draft(repo, { title: it.title, body: it.body, url: gh });
+    const body = await draft(repo, { title: it.title, body: it.body, url: gh }, "Drips Wave");
     const slug = repo.replace("/", "__") + "--" + it.gitHubIssueNumber;
     fs.writeFileSync(path.join(DRIPS_INBOX, slug + ".md"), [
       "# " + it.title, "",
