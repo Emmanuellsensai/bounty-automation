@@ -47,11 +47,57 @@ Edit `watcher/config.json` and set your GitHub username:
 }
 ```
 
+### 4. Configure Drips Wave
+
+To use the Drips Wave source, you need a **wave program ID**. This identifies which bounty wave you want to track (e.g. Stellar, Solana).
+
+**Option A — CLI (recommended):**
+
+```bash
+node bounty.js drips-waves
+```
+
+This prints all active wave programs with their IDs, e.g.:
+
+```
+Available wave programs:
+
+  fdc01c95-806f-4b6a-998b-a6ed37e0d81b  Stellar
+
+Put the one you want in drips-config.json as waveProgramId.
+```
+
+**Option B — Browser DevTools:**
+
+1. Open the Drips Wave app: https://www.drips.network/wave
+2. Pick a wave (e.g. Stellar) and browse its issues
+3. Open **DevTools** (F12 / Ctrl+Shift+I / Cmd+Opt+I) → **Network** tab
+4. Filter by `wave-api` or `wave-programs`
+5. Look for a request to `/wave-programs` or `/issues?waveProgramId=...`
+6. Copy the `waveProgramId` value from the URL or response body
+
+**Then set it in your config:**
+
+If `drips-config.json` doesn't exist yet, copy the example:
+
+```bash
+cp watcher/drips-config.example.json watcher/drips-config.json
+```
+
+Edit `watcher/drips-config.json` and replace the placeholder:
+
+```json
+{
+  "waveProgramId": "PASTE_THE_ID_HERE"
+}
+```
+
+**How to choose a wave:** Each wave targets a specific ecosystem (e.g. Stellar, Solana) with its own reward pool and point system. Check https://www.drips.network/wave to see which waves are active and what the payout structure looks like before picking one.
+
+
 ---
 
 ## Usage
-
-### List Issues (Preview)
 
 See all available issues without drafting or opening anything:
 
@@ -188,6 +234,7 @@ bounty-automation/
 | Draft is poor | Edit the `.md` file in `inbox/` before posting |
 | Rate limited | Tool retries automatically — wait if needed |
 | JSON parse error | Check `config.json` — backslashes must be doubled (`\\\\`) |
+| `waveProgramId not set` | Run `node bounty.js drips-waves` to list IDs, then set it in `drips-config.json` |
 
 ---
 
