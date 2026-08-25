@@ -281,7 +281,7 @@ async function runDrips() {
   if (!config.waveProgramId || config.waveProgramId === "YOUR_WAVEPROGRAMID") { console.log("[drips] waveProgramId not set."); return; }
   const state = fs.existsSync(DRIPS_STATE) ? JSON.parse(fs.readFileSync(DRIPS_STATE, "utf8")) : { seen: {}, applied: {} };
   const applied = loadApplied();
-  const want = config.shortlist_size || 4;
+  const want = (DRY || PICK) ? 200 : (config.shortlist_size || 15);
   const maxR = config.max_per_repo || 4;
   const minPts = config.min_points || 200;
   const maxApps = config.max_pending_applications != null ? config.max_pending_applications : 3;
@@ -350,7 +350,7 @@ const complexityOrder = { easy: 0, "easy ": 0, medium: 1, "medium ": 1, hard: 2,
   const cxCounts = {};
   kept.forEach(it => { const c = (it.complexity || "unknown").toLowerCase(); cxCounts[c] = (cxCounts[c] || 0) + 1; });
   if (Object.keys(cxCounts).length) console.log("[drips] complexity: " + Object.entries(cxCounts).map(([k, v]) => v + " " + k).join(", "));
-  console.log("[drips] " + kept.length + " issue(s) selected (easy/medium priority, by points)\n");
+  console.log("[drips] " + kept.length + " issue(s) found" + (DRY || PICK ? "" : " (showing top " + want + ")"));
   if (!kept.length) return;
   for (let i = 0; i < kept.length; i++) {
     const it = kept[i];
