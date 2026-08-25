@@ -70,11 +70,12 @@ Put the one you want in drips-config.json as waveProgramId.
 **Option B — Browser DevTools:**
 
 1. Open the Drips Wave app: https://www.drips.network/wave
-2. Pick a wave (e.g. Stellar) and browse its issues
+2. Click on a wave (e.g. Stellar) and browse its issues
 3. Open **DevTools** (F12 / Ctrl+Shift+I / Cmd+Opt+I) → **Network** tab
-4. Filter by `wave-api` or `wave-programs`
-5. Look for a request to `/wave-programs` or `/issues?waveProgramId=...`
-6. Copy the `waveProgramId` value from the URL or response body
+4. In the filter box, type: `waveProgramId`
+5. **Now reload the page** (Ctrl+Shift+R) — requests will appear
+6. Click any request, go to **Headers**, and copy the `waveProgramId` UUID from the URL
+
 
 **Then set it in your config:**
 
