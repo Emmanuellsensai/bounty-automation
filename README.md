@@ -147,6 +147,9 @@ node bounty.js all                  # Both
 | `node bounty.js grantfox` | Draft all + open browser |
 | `node bounty.js grantfox --pick 3,8` | Draft selected + open browser |
 | `node bounty.js drips --dry` | List Drips issues (no draft) |
+| `node bounty.js drips --dry --pick` | List + pick specific Drips issues |
+| `node bounty.js drips --dry --pick 3,8,22` | List + auto-select Drips issues |
+| `node bounty.js drips --pick 3,8` | Draft selected Drips + open browser |
 | `node bounty.js drips` | Draft all + open browser |
 | `node bounty.js all --dry` | List both sources |
 | `node bounty.js all --pick 1,5` | Pick from both sources |
@@ -183,8 +186,11 @@ node bounty.js drips-waves        # List Drips wave program IDs
 - Pulls from the Drips Wave API
 - Filters to 200+ point issues
 - Prioritizes easy/medium complexity (GrantFox handles hard/complex)
-- Max 3 issues per repository, 15 per run
+- Max 4 issues per repository, 15 per run
 - Only shows unassigned issues
+- Filters out issues with 4+ pending applications (max 3 apps)
+- Prioritizes 0-application issues first
+- Use `--pick` to select which issues to draft (same as GrantFox)
 
 ### Drafting
 - Uses Gemini 2.5 Flash (free tier)
